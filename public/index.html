@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔓 Digital Signature Attack Demo - RSA-64bit + Shor's Algorithm</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0a0e17;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      padding: 40px 0 30px;
+      border-bottom: 1px solid #1a2332;
+      margin-bottom: 30px;
+    }
+    header h1 {
+      font-size: 2.2em;
+      color: #ff4444;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(255,68,68,0.3);
+    }
+    header p {
+      color: #888;
+      font-size: 1.1em;
+    }
+    .warning-banner {
+      background: linear-gradient(135deg, #1a0000, #2a0000);
+      border: 1px solid #ff4444;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .warning-banner .icon { font-size: 1.5em; }
+    .warning-banner p { color: #ff8888; font-size: 0.9em; }
+
+    .step-card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 20px;
+      transition: all 0.3s;
+    }
+    .step-card.active {
+      border-color: #3b82f6;
+      box-shadow: 0 0 20px rgba(59,130,246,0.1);
+    }
+    .step-card.completed {
+      border-color: #10b981;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9em;
+      color: #6b7280;
+      border: 2px solid #374151;
+    }
+    .step-card.active .step-number {
+      background: #1e3a5f;
+      color: #3b82f6;
+      border-color: #3b82f6;
+    }
+    .step-card.completed .step-number {
+      background: #064e3b;
+      color: #10b981;
+      border-color: #10b981;
+    }
+    .step-title {
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+    .step-description {
+      color: #9ca3af;
+      margin-bottom: 15px;
+      font-size: 0.95em;
+    }
+
+    .upload-zone {
+      border: 2px dashed #374151;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .upload-zone:hover {
+      border-color: #3b82f6;
+      background: rgba(59,130,246,0.05);
+    }
+    .upload-zone.dragover {
+      border-color: #3b82f6;
+      background: rgba(59,130,246,0.1);
+    }
+    .upload-zone input { display: none; }
+    .upload-zone .icon { font-size: 2em; margin-bottom: 10px; }
+    .upload-zone p { color: #6b7280; }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-success {
+      background: #059669;
+      color: white;
+    }
+    .btn-success:hover { background: #047857; }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .terminal {
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Fira Code', 'Courier New', monospace;
+      font-size: 0.85em;
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    .terminal .prompt { color: #10b981; }
+    .terminal .command { color: #f59e0b; }
+    .terminal .output { color: #e0e0e0; }
+    .terminal .success { color: #10b981; }
+    .terminal .error { color: #ef4444; }
+    .terminal .info { color: #3b82f6; }
+
+    .key-display {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      font-family: monospace;
+      font-size: 0.85em;
+      word-break: break-all;
+    }
+    .key-display .label {
+      color: #6b7280;
+      font-size: 0.8em;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .key-display .value {
+      color: #f59e0b;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #1f2937;
+      border-radius: 2px;
+      margin: 15px 0;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      border-radius: 2px;
+      transition: width 0.5s;
+    }
+
+    .cert-block {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 0.8em;
+      color: #7ee787;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 10px;
+    }
+
+    .hidden { display: none; }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1f2937;
+      padding: 10px 15px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .file-info .icon { font-size: 1.5em; }
+    .file-info .name { font-weight: 500; }
+    .file-info .size { color: #6b7280; font-size: 0.85em; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .loading { animation: pulse 1.5s infinite; }
+
+    .quantum-animation {
+      text-align: center;
+      padding: 20px;
+      margin: 15px 0;
+    }
+    .quantum-animation .qubits {
+      font-size: 1.5em;
+      letter-spacing: 3px;
+      color: #8b5cf6;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔓 Digital Signature Attack Demo</h1>
+      <p>RSA-64bit Toy Signature — Broken by Shor's Algorithm (Simulated)</p>
+    </header>
+
+    <div class="warning-banner">
+      <span class="icon">⚠️</span>
+      <div>
+        <p><strong>EDUCATIONAL PURPOSE ONLY</strong> — This demo uses a deliberately weak "toy" RSA-64bit signature to illustrate why post-quantum cryptography is important. Real RSA uses 2048+ bit keys which are not vulnerable to classical computers.</p>
+      </div>
+    </div>
+
+    <!-- Step 1: Upload Signed PDF -->
+    <div class="step-card active" id="step1-card">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Upload Signed PDF</div>
+      </div>
+      <p class="step-description">Hacker uploads a digitally signed PDF document to begin the attack.</p>
+      <div class="upload-zone" id="upload-zone-1" onclick="document.getElementById('file-input-1').click()">
+        <div class="icon">📤</div>
+        <p>Drop signed PDF here or click to upload</p>
+        <input type="file" id="file-input-1" accept=".pdf" onchange="handleUpload(this)">
+      </div>
+      <div id="step1-result" class="hidden"></div>
+    </div>
+
+    <!-- Step 2: Extract Public Key -->
+    <div class="step-card" id="step2-card">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Locate & Extract Public Key</div>
+      </div>
+      <p class="step-description">Extract the public key certificate embedded in the signed PDF using <code>sed</code> command.</p>
+      <button class="btn btn-primary" id="btn-extract" onclick="extractPublicKey()" disabled>🔍 Extract Public Key</button>
+      <div id="step2-result" class="hidden"></div>
+    </div>
+
+    <!-- Step 3: Shor's Algorithm Attack -->
+    <div class="step-card" id="step3-card">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title">Shor's Algorithm — Break RSA</div>
+      </div>
+      <p class="step-description">Use Shor's quantum algorithm to factor the RSA modulus N and derive the private key.</p>
+      <button class="btn btn-danger" id="btn-shor" onclick="runShorAttack()" disabled>⚛️ Run Shor's Algorithm</button>
+      <div id="step3-result" class="hidden"></div>
+    </div>
+
+    <!-- Step 4 & 5: Sign New Document -->
+    <div class="step-card" id="step4-card">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div class="step-title">Forge Signature — Sign New Document</div>
+      </div>
+      <p class="step-description">Use the cracked private key to sign any document, forging a valid digital signature.</p>
+      <div class="upload-zone" id="upload-zone-2" onclick="document.getElementById('file-input-2').click()">
+        <div class="icon">📝</div>
+        <p>Upload a PDF to sign with the cracked private key</p>
+        <input type="file" id="file-input-2" accept=".pdf" onchange="handleSignUpload(this)">
+      </div>
+      <button class="btn btn-danger" id="btn-sign" onclick="signDocument()" disabled style="margin-top:12px;">✍️ Forge Signature</button>
+      <div id="step4-result" class="hidden"></div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let state = {
+      uploadedFilename: null,
+      publicKey: null,
+      privateKey: null,
+      fileToSign: null,
+      originalCertificate: null
+    };
+
+    // Step 1: Upload
+    async function handleUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      const card = document.getElementById('step1-card');
+      const result = document.getElementById('step1-result');
+      result.classList.remove('hidden');
+      result.innerHTML = '<p class="loading" style="color:#3b82f6;">Uploading and analyzing PDF...</p>';
+
+      try {
+        const resp = await fetch('/api/upload-signed-pdf', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.success) {
+          state.uploadedFilename = data.filename;
+          state.originalCertificate = data.certificate;
+          card.classList.remove('active');
+          card.classList.add('completed');
+          document.getElementById('step2-card').classList.add('active');
+          document.getElementById('btn-extract').disabled = false;
+
+          const ci = data.certInfo || {};
+          result.innerHTML = `
+            <div class="file-info">
+              <span class="icon">✅</span>
+              <div>
+                <div class="name">${file.name}</div>
+                <div class="size">${(file.size / 1024).toFixed(1)} KB — Digital signature detected (${ci.algorithm || 'RSA'}-${ci.bitLength || '?'}bit)</div>
+              </div>
+            </div>
+            <div class="terminal" style="margin-top:10px;">
+              <span class="info">[INFO]</span> <span class="output">Certificate Subject: ${ci.subject || 'N/A'}</span><br>
+              <span class="info">[INFO]</span> <span class="output">Certificate Issuer: ${ci.issuer || 'N/A'}</span><br>
+              <span class="info">[INFO]</span> <span class="output">Key Size: ${ci.bitLength || '?'} bit</span><br>
+              <span class="success">[OK]</span> <span class="output">File uploaded successfully. Proceed to extract public key.</span>
+            </div>
+          `;
+        } else {
+          result.innerHTML = `<p style="color:#ef4444;">Error: ${data.error}</p>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<p style="color:#ef4444;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Step 2: Extract public key
+    async function extractPublicKey() {
+      const card = document.getElementById('step2-card');
+      const result = document.getElementById('step2-result');
+      result.classList.remove('hidden');
+      result.innerHTML = '<p class="loading" style="color:#3b82f6;">Extracting certificate...</p>';
+
+      try {
+        const resp = await fetch('/api/extract-public-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: state.uploadedFilename })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          state.publicKey = data.publicKey;
+          card.classList.remove('active');
+          card.classList.add('completed');
+          document.getElementById('step3-card').classList.add('active');
+          document.getElementById('btn-shor').disabled = false;
+
+          const ci = data.certInfo || {};
+          result.innerHTML = `
+            <div class="terminal">
+              <span class="prompt">$</span> <span class="command">${data.command}</span><br><br>
+              <span class="output">${data.certificate.replace(/\n/g, '<br>')}</span>
+            </div>
+            <div class="key-display">
+              <div class="label">Certificate Info</div>
+              <div class="value" style="color:#9ca3af;font-size:0.85em;">Subject: ${ci.subject || 'N/A'} | Issuer: ${ci.issuer || 'N/A'}</div>
+              <div class="label">Public Key — ${ci.algorithm || 'RSA'}-${data.modulusBits}bit</div>
+              <div class="value">N = ${data.publicKey.n}</div>
+              <div class="label">Public Exponent</div>
+              <div class="value">e = ${data.publicKey.e}</div>
+            </div>
+          `;
+        } else {
+          result.innerHTML = `<p style="color:#ef4444;">Error: ${data.error}</p>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<p style="color:#ef4444;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Step 3: Shor's Algorithm
+    async function runShorAttack() {
+      const card = document.getElementById('step3-card');
+      const result = document.getElementById('step3-result');
+      result.classList.remove('hidden');
+
+      // Quantum animation
+      result.innerHTML = `
+        <div class="quantum-animation">
+          <div class="qubits loading">|ψ⟩ = α|0⟩ + β|1⟩</div>
+          <p style="color:#8b5cf6; margin-top:10px;">Running quantum period-finding...</p>
+        </div>
+        <div class="progress-bar"><div class="fill" style="width:0%" id="shor-progress"></div></div>
+      `;
+
+      // Animate progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        document.getElementById('shor-progress').style.width = progress + '%';
+      }, 200);
+
+      try {
+        const resp = await fetch('/api/shor-attack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state.publicKey)
+        });
+        const data = await resp.json();
+
+        clearInterval(interval);
+
+        if (data.success) {
+          state.privateKey = data.privateKey;
+          card.classList.remove('active');
+          card.classList.add('completed');
+          document.getElementById('step4-card').classList.add('active');
+
+          const stepsHtml = data.steps.map(s => {
+            const cls = s.includes('✓') ? 'success' : s.includes('✗') ? 'error' : 'output';
+            return `<span class="${cls}">${s}</span>`;
+          }).join('<br>');
+
+          result.innerHTML = `
+            <div class="terminal">
+              <span class="prompt">[quantum]$</span> <span class="command">shor --target ${state.publicKey.n}</span><br><br>
+              ${stepsHtml}
+            </div>
+            <div class="key-display" style="border-color: #dc2626;">
+              <div class="label" style="color:#ef4444;">🔓 CRACKED PRIVATE KEY</div>
+              <div class="value">d = ${data.privateKey.d}</div>
+              <div class="label">Factors</div>
+              <div class="value">p = ${data.factors.p}, q = ${data.factors.q}</div>
+              <div class="label">Verification</div>
+              <div class="value" style="color:#10b981;">${state.publicKey.n} = ${data.factors.p} × ${data.factors.q} ✓</div>
+            </div>
+          `;
+        } else {
+          result.innerHTML = `<p style="color:#ef4444;">Attack failed: ${data.error}</p>`;
+        }
+      } catch (err) {
+        clearInterval(interval);
+        result.innerHTML = `<p style="color:#ef4444;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Step 4: Upload file to sign
+    function handleSignUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+      state.fileToSign = file;
+      document.getElementById('btn-sign').disabled = false;
+
+      // Show file preview
+      const result = document.getElementById('step4-result');
+      result.classList.remove('hidden');
+      result.innerHTML = `
+        <div class="file-info">
+          <span class="icon">📄</span>
+          <div>
+            <div class="name">${file.name}</div>
+            <div class="size">${(file.size / 1024).toFixed(1)} KB — Ready to sign</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Step 4: Sign document
+    async function signDocument() {
+      if (!state.fileToSign || !state.privateKey) return;
+
+      const card = document.getElementById('step4-card');
+      const result = document.getElementById('step4-result');
+      result.classList.remove('hidden');
+      result.innerHTML = '<p class="loading" style="color:#3b82f6;">Signing document with cracked private key...</p>';
+
+      const formData = new FormData();
+      formData.append('pdf', state.fileToSign);
+      formData.append('n', state.privateKey.n);
+      formData.append('e', state.privateKey.e);
+      formData.append('d', state.privateKey.d);
+      formData.append('certificate', state.originalCertificate);
+
+      try {
+        const resp = await fetch('/api/sign-document', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.success) {
+          card.classList.add('completed');
+
+          result.innerHTML = `
+            <div class="terminal">
+              <span class="prompt">[attacker]$</span> <span class="command">rsa-sign --key cracked_private.key --input document.pdf</span><br><br>
+              <span class="info">[SIGN]</span> <span class="output">Computing hash of document...</span><br>
+              <span class="info">[SIGN]</span> <span class="output">Hash = ${data.hash}</span><br>
+              <span class="info">[SIGN]</span> <span class="output">Signature = hash^d mod N</span><br>
+              <span class="info">[SIGN]</span> <span class="output">Signature = ${data.signature}</span><br>
+              <span class="info">[SIGN]</span> <span class="output">Signature (base64) = ${data.signatureB64}</span><br>
+              <span class="info">[VERIFY]</span> <span class="output">Verifying: signature^e mod N == hash ?</span><br>
+              <span class="${data.verified ? 'success' : 'error'}">[RESULT]</span> <span class="output">${data.message}</span>
+            </div>
+            <div style="margin-top:15px; text-align:center; display:flex; gap:12px; justify-content:center;">
+              <a href="${data.downloadUrl}" class="btn btn-success">⬇️ Download Forged Signed Document</a>
+            </div>
+            <div style="margin-top:20px;">
+              <p style="color:#9ca3af; margin-bottom:10px; font-size:0.9em;">📄 Preview — Signed Document (with visual signature stamp):</p>
+              <iframe src="${data.previewUrl}" style="width:100%; height:500px; border:1px solid #374151; border-radius:8px; background:#fff;"></iframe>
+            </div>
+          `;
+        } else {
+          result.innerHTML = `<p style="color:#ef4444;">Error: ${data.error}</p>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<p style="color:#ef4444;">Error: ${err.message}</p>`;
+      }
+    }
+
+    // Drag and drop handlers
+    ['upload-zone-1', 'upload-zone-2'].forEach(id => {
+      const zone = document.getElementById(id);
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const input = zone.querySelector('input');
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change'));
+      });
+    });
+  </script>
+</body>
+</html>

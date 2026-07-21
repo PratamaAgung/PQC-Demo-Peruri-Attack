@@ -433,6 +433,6 @@ app.get('/api/download/:filename', (req, res) => {
   res.download(filepath);
 });
 
-app.listen(PORT, () => {
-  console.log(`🔓 Digital Signature Attack Demo running at http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🔓 Digital Signature Attack Demo running at http://0.0.0.0:${PORT}`);
 });

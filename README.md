@@ -37,7 +37,7 @@ Buka browser di **http://localhost:3000**
 │  Step 1: Hacker upload PDF yang sudah di-sign               │
 ├─────────────────────────────────────────────────────────────┤
 │  Step 2: Locate public key dari certificate dalam PDF       │
-│          $ sed -n '/BEGIN CERT/,/END CERT/p' file.pdf       │
+│          $ LC_ALL=C sed -n '/BEGIN CERT/,/END CERT/p' file.pdf │
 ├─────────────────────────────────────────────────────────────┤
 │  Step 3: Jalankan Shor's Algorithm                          │
 │          → Faktorkan N = p × q                              │

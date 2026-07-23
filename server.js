@@ -249,7 +249,7 @@ app.post('/api/extract-public-key', (req, res) => {
     return res.status(400).json({ error: `Failed to parse certificate: ${parseErr.message}` });
   }
   
-  const command = `sed -n '/BEGIN CERT/,/END CERT/p' ${filename}`;
+  const command = `LC_ALL=C sed -n '/BEGIN CERT/,/END CERT/p' ${filename}`;
   
   res.json({
     success: true,
@@ -353,9 +353,10 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
       stampedPdfBytes = pdfBuffer;
     }
     
-    // Hash the stamped PDF content
+    // Hash the stamped PDF content (full SHA-256 as integer mod N, same as verifier)
     const hash = crypto.createHash('sha256').update(Buffer.from(stampedPdfBytes)).digest('hex');
-    const hashBigInt = BigInt('0x' + hash.slice(0, 15)) % privateKey.n;
+    let hashBigInt = BigInt('0x' + hash) % privateKey.n;
+    if (hashBigInt === 0n) hashBigInt = 1n; // guard against zero hash
     
     // Sign with the recovered private key (same math as the original signer used)
     const signature = toyRSASign(hashBigInt, privateKey);
@@ -376,7 +377,6 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
     
     // Build signature trailer in the exact same format as the original
     const signatureBlock = [
-      '',
       '% ---- PQC DEMO SIGNATURE (trailing bytes, ignored by PDF viewers) ----',
       certPEM,
       '-----BEGIN PQC-DOCUMENT-----',
@@ -388,7 +388,8 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
       ''
     ].join('\n');
     
-    // Append signature to PDF
+    // Append signature trailer directly after PDF content (no extra separator)
+    // The PQC-DOCUMENT must decode to exactly the bytes before the trailer marker
     const signedPdf = Buffer.concat([Buffer.from(stampedPdfBytes), Buffer.from(signatureBlock)]);
     
     const signedFilename = `signed-${req.file.filename}`;

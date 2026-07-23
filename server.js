@@ -275,7 +275,37 @@ app.post('/api/shor-attack', (req, res) => {
   const nBig = BigInt(n);
   const eBig = BigInt(e);
   
+  // --- Brute Force Trial Division (non-optimized, limited) ---
+  // Run brute force for a limited number of iterations to measure speed,
+  // then extrapolate how long it would take to finish
+  const bruteStart = process.hrtime.bigint();
+  const BRUTE_LIMIT = 1_000_000n; // limit to 1M iterations for speed
+  let bruteP = null, bruteQ = null, bruteIterations = 0n;
+  for (let i = 2n; i * i <= nBig; i++) {
+    bruteIterations++;
+    if (nBig % i === 0n) {
+      bruteP = i;
+      bruteQ = nBig / i;
+      break;
+    }
+    if (bruteIterations >= BRUTE_LIMIT) break;
+  }
+  const bruteEnd = process.hrtime.bigint();
+  const bruteTimeNs = Number(bruteEnd - bruteStart);
+  const bruteTimeMs = bruteTimeNs / 1_000_000;
+  
+  // Calculate how long full brute force would take
+  const sqrtN = Math.ceil(Math.sqrt(Number(nBig)));
+  const timePerIterMs = bruteTimeMs / Number(bruteIterations);
+  const estimatedFullBruteMs = timePerIterMs * sqrtN;
+  const estimatedFullBruteSec = estimatedFullBruteMs / 1000;
+  
+  // --- Shor's Algorithm (simulated via Pollard's Rho) ---
+  const shorStart = process.hrtime.bigint();
   const result = shorsAlgorithm(n);
+  const shorEnd = process.hrtime.bigint();
+  const shorTimeNs = Number(shorEnd - shorStart);
+  const shorTimeMs = shorTimeNs / 1_000_000;
   
   if (result.success) {
     const p = result.p;
@@ -283,12 +313,32 @@ app.post('/api/shor-attack', (req, res) => {
     const phi = (p - 1n) * (q - 1n);
     const d = modInverse(eBig, phi);
     
+    const speedup = estimatedFullBruteSec > 0 ? (estimatedFullBruteMs / shorTimeMs).toFixed(0) : '∞';
+    
     res.json({
       success: true,
       steps: result.steps,
       factors: { p: p.toString(), q: q.toString() },
       privateKey: { n: nBig.toString(), e: eBig.toString(), d: d.toString() },
-      message: 'Private key successfully derived from public key using Shor\'s algorithm!'
+      message: 'Private key successfully derived from public key using Shor\'s algorithm!',
+      comparison: {
+        bruteForce: {
+          sampledIterations: bruteIterations.toString(),
+          sampledTimeMs: bruteTimeMs.toFixed(2),
+          estimatedTotalIterations: sqrtN.toLocaleString(),
+          estimatedTotalTimeSec: estimatedFullBruteSec.toFixed(1),
+          found: bruteP !== null
+        },
+        shor: {
+          timeMs: shorTimeMs.toFixed(2)
+        },
+        speedup,
+        extrapolation: {
+          rsa2048BruteForceYears: '> 10^300',
+          rsa2048ShorEstimate: '~10 hours (future quantum computer, ~4000 logical qubits)',
+          note: 'Trial division: O(√N). For RSA-2048, √N ≈ 2^1024 — impossible for any classical computer. Shor\'s algorithm: O((log N)³) — polynomial time on quantum hardware.'
+        }
+      }
     });
   } else {
     res.status(400).json({ success: false, steps: result.steps, error: 'Failed to factor N' });

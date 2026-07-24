@@ -26,6 +26,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // ============================================================
+// Root CA — Pre-cracked at startup
+// ============================================================
+// The Root CA has a 64-bit RSA key that we factor using Shor's (simulated)
+const ROOT_CA_PEM = fs.readFileSync(path.join(__dirname, 'certs', 'public_root_ca.pem'), 'utf8');
+const ROOT_CA_CERT = forge.pki.certificateFromPem(ROOT_CA_PEM);
+// Pre-computed cracked Root CA private key (N=11533841872092099193, p=3563593459, q=3236576227)
+const ROOT_CA_PRIVATE = {
+  n: 11533841872092099193n,
+  e: 65537n,
+  d: 839647215150339437n,
+  p: 3563593459n,
+  q: 3236576227n
+};
+
+// ============================================================
 // TOY RSA-64bit Implementation
 // ============================================================
 
@@ -128,7 +143,7 @@ function pollardRho(n) {
 }
 
 // ============================================================
-// X.509 Certificate Parsing
+// X.509 Certificate Parsing & Generation
 // ============================================================
 
 function parseX509CertPEM(pem) {
@@ -162,6 +177,69 @@ function parseX509CertPEM(pem) {
       bitLength: BigInt(data.modulus).toString(2).length
     };
   }
+}
+
+/**
+ * Generate a signer certificate signed by the cracked Root CA.
+ * Uses node-forge to build the cert structure, then patches the signature
+ * with our toy RSA since forge can't handle 64-bit keys natively.
+ */
+function generateSignerCertSignedByRootCA(signerPublicKey) {
+  // Create signer cert using forge
+  const cert = forge.pki.createCertificate();
+  
+  cert.publicKey = forge.pki.setRsaPublicKey(
+    new forge.jsbn.BigInteger(signerPublicKey.n.toString()),
+    new forge.jsbn.BigInteger(signerPublicKey.e.toString())
+  );
+  
+  cert.serialNumber = crypto.randomBytes(16).toString('hex');
+  cert.validity.notBefore = new Date();
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 2);
+  
+  // Signer subject
+  cert.setSubject([
+    { name: 'countryName', value: 'ID' },
+    { name: 'stateOrProvinceName', value: 'DKI Jakarta' },
+    { name: 'organizationName', value: 'INA Digital' },
+    { name: 'organizationalUnitName', value: 'Document Signing' },
+    { name: 'commonName', value: 'INA Digital Document Signer 2026' }
+  ]);
+  
+  // Issuer = Root CA subject
+  cert.setIssuer(ROOT_CA_CERT.subject.attributes);
+  
+  // Extensions
+  cert.setExtensions([
+    { name: 'basicConstraints', cA: false, critical: true },
+    { name: 'keyUsage', digitalSignature: true, critical: true }
+  ]);
+  
+  // Get the TBS (to-be-signed) certificate in DER
+  // We need to sign this with the Root CA's private key
+  cert.siginfo.algorithmOid = forge.oids['sha256WithRSAEncryption'];
+  const tbsCertDer = forge.asn1.toDer(forge.pki.getTBSCertificate(cert));
+  const tbsBytes = Buffer.from(tbsCertDer.getBytes(), 'binary');
+  
+  // Hash TBS with SHA-256
+  const tbsHash = crypto.createHash('sha256').update(tbsBytes).digest('hex');
+  let hashInt = BigInt('0x' + tbsHash) % ROOT_CA_PRIVATE.n;
+  if (hashInt === 0n) hashInt = 1n;
+  
+  // Sign with Root CA private key
+  const sigInt = modPow(hashInt, ROOT_CA_PRIVATE.d, ROOT_CA_PRIVATE.n);
+  
+  // Encode signature as 8 bytes
+  const sigBuf = Buffer.alloc(8);
+  sigBuf.writeBigUInt64BE(sigInt);
+  
+  // Patch the cert's signature
+  cert.signature = sigBuf.toString('binary');
+  cert.signatureOid = forge.oids['sha256WithRSAEncryption'];
+  cert.siginfo.algorithmOid = forge.oids['sha256WithRSAEncryption'];
+  
+  return forge.pki.certificateToPem(cert);
 }
 
 // ============================================================
@@ -423,7 +501,9 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
     const pdfB64 = Buffer.from(stampedPdfBytes).toString('base64');
     
     // Use the EXACT same certificate from the original signed document
-    const certPEM = certificate || '';
+    // BUT re-sign it with the cracked Root CA so the chain validates
+    const signerCertPEM = generateSignerCertSignedByRootCA(publicKey);
+    const certPEM = signerCertPEM.trim();
     
     // Build signature trailer in the exact same format as the original
     const signatureBlock = [

@@ -426,7 +426,7 @@ app.post('/api/shor-attack', (req, res) => {
 // Step 4 & 5: Sign a new document with the cracked private key
 app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
   try {
-    const { n, e, d, certificate } = req.body;
+    const { n, e, d, certificate, sigX, sigY, sigPage } = req.body;
     
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     
@@ -436,43 +436,35 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
     // Read the uploaded PDF
     const pdfBuffer = fs.readFileSync(req.file.path);
     
-    // Add visual signature to the PDF (simple handwritten-style like the original)
+    // Add visual signature to the PDF
+    // Attacker can control position via sigX, sigY, sigPage
+    const posX = parseFloat(sigX) || 50;
+    const posY = parseFloat(sigY) || 80;
+    const pageNum = parseInt(sigPage) || 1; // 1-indexed
+    
     let stampedPdfBytes;
     try {
       const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
       const pages = pdfDoc.getPages();
-      const lastPage = pages[pages.length - 1];
-      const { width } = lastPage.getSize();
+      const targetPage = pages[Math.min(pageNum - 1, pages.length - 1)] || pages[pages.length - 1];
       
-      const font = await pdfDoc.embedFont(StandardFonts.Courier);
-      
-      // Draw a simple signature at the bottom of the last page
-      // "Signature:" label
-      lastPage.drawText('Signature:', {
-        x: 50,
-        y: 80,
-        font,
-        size: 11,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      
-      // Draw a handwritten-style signature using a cursive-like path simulation
-      // We'll use the italic font to simulate handwriting
+      // Draw "Irwan" signature in latin/cursive style
       const sigFont = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
-      lastPage.drawText('John S. Doe', {
-        x: 55,
-        y: 50,
+      
+      targetPage.drawText('Irwan', {
+        x: posX,
+        y: posY,
         font: sigFont,
-        size: 22,
-        color: rgb(0.0, 0.0, 0.4),
+        size: 26,
+        color: rgb(0.0, 0.0, 0.3),
       });
       
       // Draw a line under the signature
-      lastPage.drawLine({
-        start: { x: 50, y: 44 },
-        end: { x: 200, y: 44 },
+      targetPage.drawLine({
+        start: { x: posX - 5, y: posY - 8 },
+        end: { x: posX + 100, y: posY - 8 },
         thickness: 0.5,
-        color: rgb(0.4, 0.4, 0.4),
+        color: rgb(0.3, 0.3, 0.3),
       });
       
       stampedPdfBytes = await pdfDoc.save();

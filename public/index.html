@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🔓 Digital Signature Attack Demo - RSA-64bit + Shor's Algorithm</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -318,6 +322,18 @@
         <p>Upload a PDF to sign with the cracked private key</p>
         <input type="file" id="file-input-2" accept=".pdf" onchange="handleSignUpload(this)">
       </div>
+      <div id="step4-placement" class="hidden" style="margin-top:15px;">
+        <div style="font-weight:600; margin-bottom:10px; color:#f59e0b;">✍️ Click on the document to place "Irwan" signature</div>
+        <div id="pdf-canvas-container" style="position:relative; border:1px solid #374151; border-radius:8px; overflow:hidden; cursor:crosshair; background:#fff;">
+          <canvas id="pdf-canvas"></canvas>
+          <div id="sig-ghost" style="position:absolute; pointer-events:none; font-family:'Times New Roman',serif; font-style:italic; font-size:22px; color:rgba(0,0,77,0.6); display:none; white-space:nowrap;">Irwan</div>
+          <div id="sig-placed" style="position:absolute; pointer-events:none; font-family:'Times New Roman',serif; font-style:italic; font-size:22px; color:rgba(0,0,77,0.9); display:none; white-space:nowrap; border-bottom:1px solid rgba(50,50,50,0.5);">Irwan</div>
+        </div>
+        <div style="display:flex; gap:12px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+          <span id="sig-coords" style="color:#6b7280; font-size:0.8em;">Click to place signature</span>
+          <select id="sig-page-select" style="background:#111; border:1px solid #333; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.85em;"></select>
+        </div>
+      </div>
       <button class="btn btn-danger" id="btn-sign" onclick="signDocument()" disabled style="margin-top:12px;">✍️ Forge Signature</button>
       <div id="step4-result" class="hidden"></div>
     </div>
@@ -529,29 +545,125 @@
     }
 
     // Step 4: Upload file to sign
-    function handleSignUpload(input) {
+    let pdfDoc4 = null;
+    let pdfPageCount = 0;
+    let currentPdfPage = 1;
+    let pdfScale = 1;
+    let sigPlacement = null; // { x, y, page }
+
+    async function handleSignUpload(input) {
       const file = input.files[0];
       if (!file) return;
       state.fileToSign = file;
-      document.getElementById('btn-sign').disabled = false;
 
-      // Show file preview
-      const result = document.getElementById('step4-result');
-      result.classList.remove('hidden');
-      result.innerHTML = `
+      // Show placement UI
+      document.getElementById('step4-placement').classList.remove('hidden');
+      document.getElementById('step4-result').classList.remove('hidden');
+      document.getElementById('step4-result').innerHTML = `
         <div class="file-info">
           <span class="icon">📄</span>
           <div>
             <div class="name">${file.name}</div>
-            <div class="size">${(file.size / 1024).toFixed(1)} KB — Ready to sign</div>
+            <div class="size">${(file.size / 1024).toFixed(1)} KB — Click on preview to place signature</div>
           </div>
         </div>
       `;
+
+      // Load PDF with PDF.js
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      pdfDoc4 = await loadingTask.promise;
+      pdfPageCount = pdfDoc4.numPages;
+
+      // Build page selector
+      const sel = document.getElementById('sig-page-select');
+      sel.innerHTML = '';
+      for (let i = 1; i <= pdfPageCount; i++) {
+        sel.innerHTML += `<option value="${i}">Page ${i}</option>`;
+      }
+      sel.onchange = () => { currentPdfPage = parseInt(sel.value); renderPdfPage(); };
+
+      currentPdfPage = 1;
+      sigPlacement = null;
+      renderPdfPage();
     }
+
+    async function renderPdfPage() {
+      const page = await pdfDoc4.getPage(currentPdfPage);
+      const viewport = page.getViewport({ scale: 1 });
+      // Scale to fit container (max width ~900px)
+      const maxW = Math.min(900, document.getElementById('pdf-canvas-container').parentElement.offsetWidth - 30);
+      pdfScale = maxW / viewport.width;
+      const scaledViewport = page.getViewport({ scale: pdfScale });
+
+      const canvas = document.getElementById('pdf-canvas');
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      const ctx = canvas.getContext('2d');
+
+      await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+      // Reset ghost/placed
+      document.getElementById('sig-ghost').style.display = 'none';
+      const placed = document.getElementById('sig-placed');
+      if (sigPlacement && sigPlacement.page === currentPdfPage) {
+        placed.style.display = 'block';
+        placed.style.left = sigPlacement.canvasX + 'px';
+        placed.style.top = sigPlacement.canvasY + 'px';
+      } else {
+        placed.style.display = 'none';
+      }
+    }
+
+    // Mouse events for signature placement
+    (function() {
+      const container = document.getElementById('pdf-canvas-container');
+      const ghost = document.getElementById('sig-ghost');
+      const placed = document.getElementById('sig-placed');
+
+      container.addEventListener('mousemove', (e) => {
+        if (!pdfDoc4) return;
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        ghost.style.display = 'block';
+        ghost.style.left = x + 'px';
+        ghost.style.top = (y - 10) + 'px';
+      });
+
+      container.addEventListener('mouseleave', () => {
+        ghost.style.display = 'none';
+      });
+
+      container.addEventListener('click', (e) => {
+        if (!pdfDoc4) return;
+        const rect = container.getBoundingClientRect();
+        const canvasX = e.clientX - rect.left;
+        const canvasY = e.clientY - rect.top;
+
+        // Convert canvas coords to PDF coords (origin bottom-left)
+        const canvas = document.getElementById('pdf-canvas');
+        const pdfX = canvasX / pdfScale;
+        const pdfY = (canvas.height - canvasY) / pdfScale;
+
+        sigPlacement = { x: pdfX, y: pdfY, page: currentPdfPage, canvasX, canvasY: canvasY - 10 };
+
+        // Show placed marker
+        placed.style.display = 'block';
+        placed.style.left = canvasX + 'px';
+        placed.style.top = (canvasY - 10) + 'px';
+
+        // Update coords display
+        document.getElementById('sig-coords').textContent = `Placed at PDF (${Math.round(pdfX)}, ${Math.round(pdfY)}) on page ${currentPdfPage}`;
+
+        // Enable sign button
+        document.getElementById('btn-sign').disabled = false;
+      });
+    })();
 
     // Step 4: Sign document
     async function signDocument() {
-      if (!state.fileToSign || !state.privateKey) return;
+      if (!state.fileToSign || !state.privateKey || !sigPlacement) return;
 
       const card = document.getElementById('step4-card');
       const result = document.getElementById('step4-result');
@@ -564,6 +676,9 @@
       formData.append('e', state.privateKey.e);
       formData.append('d', state.privateKey.d);
       formData.append('certificate', state.originalCertificate);
+      formData.append('sigX', Math.round(sigPlacement.x));
+      formData.append('sigY', Math.round(sigPlacement.y));
+      formData.append('sigPage', sigPlacement.page);
 
       try {
         const resp = await fetch('/api/sign-document', { method: 'POST', body: formData });

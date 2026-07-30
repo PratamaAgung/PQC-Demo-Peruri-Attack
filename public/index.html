@@ -262,14 +262,14 @@
 <body>
   <div class="container">
     <header>
-      <h1>🔓 Digital Signature Attack Demo</h1>
-      <p>RSA-64bit Toy Signature — Broken by Shor's Algorithm (Simulated)</p>
+      <h1>🔓 Quantum Attack on Digital Signature</h1>
+      <p>Demonstrasi serangan Shor's Algorithm terhadap tanda tangan digital RSA</p>
     </header>
 
     <div class="warning-banner">
       <span class="icon">⚠️</span>
       <div>
-        <p><strong>EDUCATIONAL PURPOSE ONLY</strong> — This demo uses a deliberately weak "toy" RSA-64bit signature to illustrate why post-quantum cryptography is important. Real RSA uses 2048+ bit keys which are not vulnerable to classical computers.</p>
+        <p><strong>DEMO EDUKASI</strong> — Menggunakan RSA-64bit (sengaja lemah) untuk menunjukkan ancaman quantum computing terhadap kriptografi saat ini.</p>
       </div>
     </div>
 
@@ -277,12 +277,12 @@
     <div class="step-card active" id="step1-card">
       <div class="step-header">
         <div class="step-number">1</div>
-        <div class="step-title">Upload Signed PDF</div>
+        <div class="step-title">Upload Dokumen yang Sudah Ditandatangani</div>
       </div>
-      <p class="step-description">Hacker uploads a digitally signed PDF document to begin the attack.</p>
+      <p class="step-description">Attacker mendapatkan dokumen yang sudah ditandatangani secara digital.</p>
       <div class="upload-zone" id="upload-zone-1" onclick="document.getElementById('file-input-1').click()">
         <div class="icon">📤</div>
-        <p>Drop signed PDF here or click to upload</p>
+        <p>Upload file PDF yang sudah ditandatangani</p>
         <input type="file" id="file-input-1" accept=".pdf" onchange="handleUpload(this)">
       </div>
       <div id="step1-result" class="hidden"></div>
@@ -292,10 +292,10 @@
     <div class="step-card" id="step2-card">
       <div class="step-header">
         <div class="step-number">2</div>
-        <div class="step-title">Locate & Extract Public Key</div>
+        <div class="step-title">Ekstrak Public Key</div>
       </div>
-      <p class="step-description">Extract the public key certificate embedded in the signed PDF using <code>sed</code> command.</p>
-      <button class="btn btn-primary" id="btn-extract" onclick="extractPublicKey()" disabled>🔍 Extract Public Key</button>
+      <p class="step-description">Attacker mengambil public key dari sertifikat digital yang tertanam di dokumen.</p>
+      <button class="btn btn-primary" id="btn-extract" onclick="extractPublicKey()" disabled>🔍 Ekstrak Public Key</button>
       <div id="step2-result" class="hidden"></div>
     </div>
 
@@ -303,10 +303,10 @@
     <div class="step-card" id="step3-card">
       <div class="step-header">
         <div class="step-number">3</div>
-        <div class="step-title">Shor's Algorithm — Break RSA</div>
+        <div class="step-title">Quantum Attack — Crack Private Key</div>
       </div>
-      <p class="step-description">Use Shor's quantum algorithm to factor the RSA modulus N and derive the private key.</p>
-      <button class="btn btn-danger" id="btn-shor" onclick="runShorAttack()" disabled>⚛️ Run Shor's Algorithm</button>
+      <p class="step-description">Menggunakan Shor's Algorithm (quantum computing) untuk memfaktorkan modulus RSA dan mendapatkan private key.</p>
+      <button class="btn btn-danger" id="btn-shor" onclick="runShorAttack()" disabled>⚛️ Jalankan Shor's Algorithm</button>
       <div id="step3-result" class="hidden"></div>
     </div>
 
@@ -314,20 +314,20 @@
     <div class="step-card" id="step4-card">
       <div class="step-header">
         <div class="step-number">4</div>
-        <div class="step-title">Forge Signature — Sign New Document</div>
+        <div class="step-title">Tanda Tangani Dokumen Palsu</div>
       </div>
-      <p class="step-description">Use the cracked private key to sign any document, forging a valid digital signature.</p>
+      <p class="step-description">Attacker menggunakan private key yang sudah di-crack untuk menandatangani dokumen apapun.</p>
       <div class="upload-zone" id="upload-zone-2" onclick="document.getElementById('file-input-2').click()">
         <div class="icon">📝</div>
         <p>Upload a PDF to sign with the cracked private key</p>
         <input type="file" id="file-input-2" accept=".pdf" onchange="handleSignUpload(this)">
       </div>
       <div id="step4-placement" class="hidden" style="margin-top:15px;">
-        <div style="font-weight:600; margin-bottom:10px; color:#f59e0b;">✍️ Click on the document to place "Irwan" signature</div>
+        <div style="font-weight:600; margin-bottom:10px; color:#f59e0b;">✍️ Click on the document to place forged signature</div>
         <div id="pdf-canvas-container" style="position:relative; border:1px solid #374151; border-radius:8px; overflow:hidden; cursor:crosshair; background:#fff;">
           <canvas id="pdf-canvas"></canvas>
-          <div id="sig-ghost" style="position:absolute; pointer-events:none; font-family:'Times New Roman',serif; font-style:italic; font-size:22px; color:rgba(0,0,77,0.6); display:none; white-space:nowrap;">Irwan</div>
-          <div id="sig-placed" style="position:absolute; pointer-events:none; font-family:'Times New Roman',serif; font-style:italic; font-size:22px; color:rgba(0,0,77,0.9); display:none; white-space:nowrap; border-bottom:1px solid rgba(50,50,50,0.5);">Irwan</div>
+          <div id="sig-ghost" style="position:absolute; pointer-events:none; display:none;"><img src="/certs/tanda-tangan.png" style="width:100px; opacity:0.5;"></div>
+          <div id="sig-placed" style="position:absolute; pointer-events:none; display:none;"><img src="/certs/tanda-tangan.png" style="width:100px; opacity:0.9;"></div>
         </div>
         <div style="display:flex; gap:12px; margin-top:10px; align-items:center; flex-wrap:wrap;">
           <span id="sig-coords" style="color:#6b7280; font-size:0.8em;">Click to place signature</span>
@@ -380,14 +380,8 @@
               <span class="icon">✅</span>
               <div>
                 <div class="name">${file.name}</div>
-                <div class="size">${(file.size / 1024).toFixed(1)} KB — Digital signature detected (${ci.algorithm || 'RSA'}-${ci.bitLength || '?'}bit)</div>
+                <div class="size">Tanda tangan digital terdeteksi — Signer: <strong>${ci.subject || 'N/A'}</strong></div>
               </div>
-            </div>
-            <div class="terminal" style="margin-top:10px;">
-              <span class="info">[INFO]</span> <span class="output">Certificate Subject: ${ci.subject || 'N/A'}</span><br>
-              <span class="info">[INFO]</span> <span class="output">Certificate Issuer: ${ci.issuer || 'N/A'}</span><br>
-              <span class="info">[INFO]</span> <span class="output">Key Size: ${ci.bitLength || '?'} bit</span><br>
-              <span class="success">[OK]</span> <span class="output">File uploaded successfully. Proceed to extract public key.</span>
             </div>
           `;
         } else {
@@ -422,17 +416,11 @@
 
           const ci = data.certInfo || {};
           result.innerHTML = `
-            <div class="terminal">
-              <span class="prompt">$</span> <span class="command">${data.command}</span><br><br>
-              <span class="output">${data.certificate.replace(/\n/g, '<br>')}</span>
-            </div>
             <div class="key-display">
-              <div class="label">Certificate Info</div>
-              <div class="value" style="color:#9ca3af;font-size:0.85em;">Subject: ${ci.subject || 'N/A'} | Issuer: ${ci.issuer || 'N/A'}</div>
-              <div class="label">Public Key — ${ci.algorithm || 'RSA'}-${data.modulusBits}bit</div>
+              <div class="label">Public Key berhasil diekstrak (RSA-${data.modulusBits}bit)</div>
               <div class="value">N = ${data.publicKey.n}</div>
-              <div class="label">Public Exponent</div>
-              <div class="value">e = ${data.publicKey.e}</div>
+              <div class="label">Signer</div>
+              <div class="value" style="color:#9ca3af;">${ci.subject || 'N/A'}</div>
             </div>
           `;
         } else {
@@ -482,54 +470,39 @@
           card.classList.add('completed');
           document.getElementById('step4-card').classList.add('active');
 
-          const stepsHtml = data.steps.map(s => {
-            const cls = s.includes('✓') ? 'success' : s.includes('✗') ? 'error' : 'output';
-            return `<span class="${cls}">${s}</span>`;
-          }).join('<br>');
-
           result.innerHTML = `
-            <div class="terminal">
-              <span class="prompt">[quantum]$</span> <span class="command">shor --target ${state.publicKey.n}</span><br><br>
-              ${stepsHtml}
-            </div>
             <div class="key-display" style="border-color: #dc2626;">
-              <div class="label" style="color:#ef4444;">🔓 CRACKED PRIVATE KEY</div>
+              <div class="label" style="color:#ef4444;">🔓 PRIVATE KEY BERHASIL DI-CRACK</div>
               <div class="value">d = ${data.privateKey.d}</div>
-              <div class="label">Factors</div>
-              <div class="value">p = ${data.factors.p}, q = ${data.factors.q}</div>
-              <div class="label">Verification</div>
-              <div class="value" style="color:#10b981;">${state.publicKey.n} = ${data.factors.p} × ${data.factors.q} ✓</div>
+              <div class="label">Faktor prima</div>
+              <div class="value">${state.publicKey.n} = ${data.factors.p} × ${data.factors.q}</div>
             </div>
             ${data.comparison ? `
             <div style="margin-top:15px; background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:15px;">
-              <div style="font-weight:600; margin-bottom:12px; color:#f59e0b;">⚡ Performance Comparison: Brute Force vs Quantum</div>
-              <table style="width:100%; border-collapse:collapse; font-size:0.85em;">
+              <div style="font-weight:600; margin-bottom:12px; color:#f59e0b;">⚡ Perbandingan Waktu Serangan</div>
+              <table style="width:100%; border-collapse:collapse; font-size:0.9em;">
                 <tr style="border-bottom:1px solid #21262d;">
-                  <th style="text-align:left; padding:8px; color:#6b7280;">Method</th>
-                  <th style="text-align:right; padding:8px; color:#6b7280;">Time</th>
-                  <th style="text-align:right; padding:8px; color:#6b7280;">Detail</th>
+                  <th style="text-align:left; padding:8px; color:#6b7280;">Metode</th>
+                  <th style="text-align:right; padding:8px; color:#6b7280;">Waktu</th>
                 </tr>
                 <tr style="border-bottom:1px solid #21262d;">
-                  <td style="padding:8px; color:#ef4444;">🐢 Brute Force (Trial Division)</td>
-                  <td style="padding:8px; text-align:right; color:#ef4444;">${data.comparison.bruteForce.found ? data.comparison.bruteForce.sampledTimeMs + ' ms' : '~' + data.comparison.bruteForce.estimatedTotalTimeSec + ' sec (estimated)'}</td>
-                  <td style="padding:8px; text-align:right; color:#ef4444;">${data.comparison.bruteForce.found ? Number(data.comparison.bruteForce.sampledIterations).toLocaleString() + ' iterations' : '√N ≈ ' + data.comparison.bruteForce.estimatedTotalIterations + ' iterations needed'}</td>
+                  <td style="padding:8px; color:#ef4444;">🐢 Brute Force (Komputer Klasik)</td>
+                  <td style="padding:8px; text-align:right; color:#ef4444;">${data.comparison.bruteForce.found ? data.comparison.bruteForce.sampledTimeMs + ' ms' : '~' + data.comparison.bruteForce.estimatedTotalTimeSec + ' detik'}</td>
                 </tr>
                 <tr style="border-bottom:1px solid #21262d;">
                   <td style="padding:8px; color:#10b981;">⚛️ Shor's Algorithm (Quantum)</td>
                   <td style="padding:8px; text-align:right; color:#10b981;">${data.comparison.shor.timeMs} ms</td>
-                  <td style="padding:8px; text-align:right; color:#10b981;">O((log N)³) — polynomial</td>
                 </tr>
                 <tr>
-                  <td style="padding:8px; color:#f59e0b;" colspan="2">Quantum Speedup</td>
-                  <td style="padding:8px; text-align:right; color:#f59e0b; font-weight:bold;">${data.comparison.speedup}×</td>
+                  <td style="padding:8px; color:#f59e0b;">Speedup Quantum</td>
+                  <td style="padding:8px; text-align:right; color:#f59e0b; font-weight:bold;">${data.comparison.speedup}× lebih cepat</td>
                 </tr>
               </table>
               <div style="margin-top:12px; padding-top:12px; border-top:1px solid #21262d;">
-                <div style="font-weight:600; margin-bottom:8px; color:#8b5cf6;">📐 Extrapolation to RSA-2048 (Real-World Key)</div>
-                <div style="font-size:0.85em; line-height:1.8;">
-                  <span style="color:#ef4444;">🐢 Brute Force:</span> <span style="color:#e0e0e0;">${data.comparison.extrapolation.rsa2048BruteForceYears} years</span><br>
-                  <span style="color:#10b981;">⚛️ Shor's Algorithm:</span> <span style="color:#e0e0e0;">${data.comparison.extrapolation.rsa2048ShorEstimate}</span><br>
-                  <span style="color:#6b7280; font-size:0.9em; font-style:italic;">${data.comparison.extrapolation.note}</span>
+                <div style="font-weight:600; margin-bottom:8px; color:#8b5cf6;">📐 Jika RSA-2048 (digunakan saat ini)</div>
+                <div style="font-size:0.9em; line-height:1.8;">
+                  <span style="color:#ef4444;">🐢 Komputer Klasik:</span> <span style="color:#e0e0e0;">> 10³⁰⁰ tahun (tidak mungkin)</span><br>
+                  <span style="color:#10b981;">⚛️ Quantum Computer:</span> <span style="color:#e0e0e0;">~10 jam (dengan ~4000 qubit)</span>
                 </div>
               </div>
             </div>
@@ -688,21 +661,15 @@
           card.classList.add('completed');
 
           result.innerHTML = `
-            <div class="terminal">
-              <span class="prompt">[attacker]$</span> <span class="command">rsa-sign --key cracked_private.key --input document.pdf</span><br><br>
-              <span class="info">[SIGN]</span> <span class="output">Computing hash of document...</span><br>
-              <span class="info">[SIGN]</span> <span class="output">Hash = ${data.hash}</span><br>
-              <span class="info">[SIGN]</span> <span class="output">Signature = hash^d mod N</span><br>
-              <span class="info">[SIGN]</span> <span class="output">Signature = ${data.signature}</span><br>
-              <span class="info">[SIGN]</span> <span class="output">Signature (base64) = ${data.signatureB64}</span><br>
-              <span class="info">[VERIFY]</span> <span class="output">Verifying: signature^e mod N == hash ?</span><br>
-              <span class="${data.verified ? 'success' : 'error'}">[RESULT]</span> <span class="output">${data.message}</span>
+            <div style="background:#064e3b; border:1px solid #10b981; border-radius:8px; padding:15px; margin-top:15px;">
+              <div style="font-size:1.1em; font-weight:600; color:#10b981; margin-bottom:8px;">✓ Dokumen berhasil ditandatangani dengan private key curian!</div>
+              <p style="color:#d1d5db; font-size:0.9em;">Tanda tangan digital palsu ini akan lolos verifikasi karena menggunakan private key yang sah — di-crack dari public key menggunakan quantum computing.</p>
             </div>
             <div style="margin-top:15px; text-align:center; display:flex; gap:12px; justify-content:center;">
-              <a href="${data.downloadUrl}" class="btn btn-success">⬇️ Download Forged Signed Document</a>
+              <a href="${data.downloadUrl}" class="btn btn-success">⬇️ Download Dokumen Palsu</a>
             </div>
             <div style="margin-top:20px;">
-              <p style="color:#9ca3af; margin-bottom:10px; font-size:0.9em;">📄 Preview — Signed Document (with visual signature stamp):</p>
+              <p style="color:#9ca3af; margin-bottom:10px; font-size:0.9em;">📄 Preview dokumen yang sudah ditandatangani:</p>
               <iframe src="${data.previewUrl}" style="width:100%; height:500px; border:1px solid #374151; border-radius:8px; background:#fff;"></iframe>
             </div>
           `;

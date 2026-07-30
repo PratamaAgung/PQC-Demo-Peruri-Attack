@@ -184,7 +184,7 @@ function parseX509CertPEM(pem) {
  * Uses node-forge to build the cert structure, then patches the signature
  * with our toy RSA since forge can't handle 64-bit keys natively.
  */
-function generateSignerCertSignedByRootCA(signerPublicKey) {
+function generateSignerCertSignedByRootCA(signerPublicKey, originalCertSubject) {
   // Create signer cert using forge
   const cert = forge.pki.createCertificate();
   
@@ -198,14 +198,18 @@ function generateSignerCertSignedByRootCA(signerPublicKey) {
   cert.validity.notAfter = new Date();
   cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 2);
   
-  // Signer subject
-  cert.setSubject([
-    { name: 'countryName', value: 'ID' },
-    { name: 'stateOrProvinceName', value: 'DKI Jakarta' },
-    { name: 'organizationName', value: 'INA Digital' },
-    { name: 'organizationalUnitName', value: 'Document Signing' },
-    { name: 'commonName', value: 'INA Digital Document Signer 2026' }
-  ]);
+  // Use the original cert's subject attributes if available, otherwise default
+  if (originalCertSubject && originalCertSubject.length > 0) {
+    cert.setSubject(originalCertSubject);
+  } else {
+    cert.setSubject([
+      { name: 'countryName', value: 'ID' },
+      { name: 'stateOrProvinceName', value: 'DKI Jakarta' },
+      { name: 'organizationName', value: 'INA Digital' },
+      { name: 'organizationalUnitName', value: 'Document Signing' },
+      { name: 'commonName', value: 'INA Digital Document Signer 2026' }
+    ]);
+  }
   
   // Issuer = Root CA subject
   cert.setIssuer(ROOT_CA_CERT.subject.attributes);
@@ -448,23 +452,20 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
       const pages = pdfDoc.getPages();
       const targetPage = pages[Math.min(pageNum - 1, pages.length - 1)] || pages[pages.length - 1];
       
-      // Draw "Irwan" signature in latin/cursive style
-      const sigFont = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
+      // Draw "Irwan Rei" signature using PNG image
+      const sigImagePath = path.join(__dirname, 'certs', 'tanda tangan.png');
+      const sigImageBytes = fs.readFileSync(sigImagePath);
+      const sigImage = await pdfDoc.embedPng(sigImageBytes);
       
-      targetPage.drawText('Irwan', {
+      // Scale image to reasonable size (width ~120 PDF points)
+      const sigWidth = 120;
+      const sigHeight = sigWidth * (sigImage.height / sigImage.width);
+      
+      targetPage.drawImage(sigImage, {
         x: posX,
-        y: posY,
-        font: sigFont,
-        size: 26,
-        color: rgb(0.0, 0.0, 0.3),
-      });
-      
-      // Draw a line under the signature
-      targetPage.drawLine({
-        start: { x: posX - 5, y: posY - 8 },
-        end: { x: posX + 100, y: posY - 8 },
-        thickness: 0.5,
-        color: rgb(0.3, 0.3, 0.3),
+        y: posY - sigHeight,
+        width: sigWidth,
+        height: sigHeight,
       });
       
       stampedPdfBytes = await pdfDoc.save();
@@ -494,7 +495,15 @@ app.post('/api/sign-document', upload.single('pdf'), async (req, res) => {
     
     // Use the EXACT same certificate from the original signed document
     // BUT re-sign it with the cracked Root CA so the chain validates
-    const signerCertPEM = generateSignerCertSignedByRootCA(publicKey);
+    // Extract original cert's subject to reuse in the forged cert
+    let originalSubject = null;
+    if (certificate && certificate !== 'dummy' && certificate.includes('BEGIN CERTIFICATE')) {
+      try {
+        const origCert = forge.pki.certificateFromPem(certificate);
+        originalSubject = origCert.subject.attributes;
+      } catch (e) { /* ignore parse errors, will use default subject */ }
+    }
+    const signerCertPEM = generateSignerCertSignedByRootCA(publicKey, originalSubject);
     const certPEM = signerCertPEM.trim();
     
     // Build signature trailer in the exact same format as the original

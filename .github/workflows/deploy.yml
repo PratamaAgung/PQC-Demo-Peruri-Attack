@@ -1,4 +1,4 @@
-name: Deploy to AWS App Runner
+name: Deploy to ECS Express Mode
 
 on:
   push:
@@ -8,24 +8,24 @@ on:
 env:
   AWS_REGION: ap-southeast-1
   ECR_REPOSITORY: pqc-attack-demo
-  APP_RUNNER_SERVICE: pqc-attack-demo
+  SERVICE_ARN: arn:aws:ecs:ap-southeast-1:406580188685:service/default/pqc-digital-signature
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -39,28 +39,18 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Deploy to App Runner
+      - name: Deploy to ECS Express Mode
+        env:
+          IMAGE: ${{ steps.build-image.outputs.image }}
         run: |
-          # Update App Runner service with new image
-          aws apprunner update-service \
-            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }} \
-            --source-configuration '{
-              "ImageRepository": {
-                "ImageIdentifier": "${{ steps.build-image.outputs.image }}",
-                "ImageRepositoryType": "ECR",
-                "ImageConfiguration": {
-                  "Port": "3000"
-                }
-              },
-              "AutoDeploymentsEnabled": false,
-              "AuthenticationConfiguration": {
-                "AccessRoleArn": "${{ secrets.APP_RUNNER_ECR_ROLE_ARN }}"
-              }
-            }'
+          aws ecs update-express-gateway-service \
+            --service-arn $SERVICE_ARN \
+            --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":3000}"
           
-          echo "✅ Deployment triggered. App Runner will update the service."
+          echo "✅ Deployment triggered."
+          echo "🌐 URL: https://pq-9be5edc20e2e4caebcfaf07fa56da088.ecs.ap-southeast-1.on.aws"

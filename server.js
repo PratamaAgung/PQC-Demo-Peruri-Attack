@@ -22,7 +22,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Health check - respond instantly on both / and /health for App Runner
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+// Serve static files
+app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }));
 app.use(express.json());
 
 // ============================================================
